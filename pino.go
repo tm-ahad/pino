@@ -88,6 +88,7 @@ const (
 	OPTIONS
 )
 
+//Cookie struct
 type Cookie struct {
 	name     string
 	value    string
@@ -98,6 +99,8 @@ type Cookie struct {
 	Domain   string
 }
 
+
+//Request struct is used as the only parameter to the handler function
 type Request struct {
 	Headers       http.Header
 	Query         map[string]string
@@ -112,6 +115,7 @@ type Request struct {
 	Url           string
 }
 
+//A Response is returned from a handler function
 type Response struct {
 	Headers   http.Header
 	Cookies   map[string]Cookie
@@ -122,6 +126,7 @@ type Response struct {
 	Stream 	  bool
 }
 
+//Handler function receives a reference to a Request struct and returns a Response struct
 type Handler func(ctx *Request) Response
 
 type Route struct {
@@ -131,6 +136,7 @@ type Route struct {
 	Use  	bool
 }
 
+//Server struct is used to represent the listener and the settings.
 type Pino struct {
 	NotFoundHandler Handler
 	Listener  		net.Listener
@@ -142,6 +148,8 @@ type Pino struct {
 	Host      		string
 }
 
+
+//Used to add CORS behavior's.
 type Cors struct {
 	Origins []string
 	Methods []Method
@@ -150,6 +158,7 @@ type Cors struct {
 	MaxAge	uint64
 }
 
+//CompressBody is a method of Response struct to compress the body of a response for big payload.
 func (res *Response) CompressBody() {
 	var b bytes.Buffer
 	gz := gzip.NewWriter(&b)
@@ -161,6 +170,7 @@ func (res *Response) CompressBody() {
 	res.Headers.Add("Content-Encoding", "gzip")
 }
 
+//Parses a string with all uppercase letters to it's corresponding Method type default is GET method.
 func parseMethod(method string) Method {
 	switch method {
 	case "GET":    	return GET
@@ -172,6 +182,7 @@ func parseMethod(method string) Method {
 	}
 }
 
+//Convert's a Method type to the corresponding string with all uppercase letters.
 func (method Method) toString() string {
 	switch method {
 	case GET:     return "GET"
@@ -184,6 +195,7 @@ func (method Method) toString() string {
 	return "GO GET A GIRL."
 }
 
+//Creates a new listener
 func NewPino(host string, port uint16) Pino {
 	return Pino{
 		Host: host,
@@ -219,6 +231,8 @@ func (server *Pino) findHandle(url string, method Method) Handler {
 	return server.NotFoundHandler;
 }
 
+
+//Static acts as a file server for the listener.
 func (server *Pino) Static(endpoint string, folder string) {
 	server.Routes = append(server.Routes, Route{
 		Use: true,
@@ -311,6 +325,7 @@ func (server *Pino) Static(endpoint string, folder string) {
 	})
 }
 
+//Start's the listener with corresponding routes and address.
 func (server *Pino) Serve() {
 	host := fmt.Sprintf("%s:%d", server.Host, server.Port);
 	listener, err := net.Listen("tcp", host);
@@ -322,6 +337,8 @@ func (server *Pino) Serve() {
 	server._serve(listener)
 }
 
+
+//Start's the listener with corresponding routes, address and a tls configuration.
 func (server *Pino) ServeWithTLS(tlsConfig *tls.Config) {
 	host := fmt.Sprintf("%s:%d", server.Host, server.Port)
 	listener, err := tls.Listen("tcp", host, tlsConfig)
@@ -409,7 +426,7 @@ func (server *Pino) ShutDown() {
     fmt.Println("Server gracefully shut down.")
 }
 
-
+//Create's a handle that receives GET requests on the given endpoint.
 func (server *Pino) Get(path string, handler Handler) {
 	server.Routes = append(server.Routes, Route{
 		Path: path,
@@ -419,6 +436,7 @@ func (server *Pino) Get(path string, handler Handler) {
 	})
 }
 
+//Create's a handle that receives POST requests on the given endpoint.
 func (server *Pino) Post(path string, handler Handler) {
 	server.Routes = append(server.Routes, Route{
 		Path: path,
@@ -428,6 +446,7 @@ func (server *Pino) Post(path string, handler Handler) {
 	})
 }
 
+//Create's a handle that receives PUT requests on the given endpoint.
 func (server *Pino) Put(path string, handler Handler) {
 	server.Routes = append(server.Routes, Route{
 		Path: path,
@@ -437,6 +456,7 @@ func (server *Pino) Put(path string, handler Handler) {
 	})
 }
 
+//Create's a handle that receives DELETE requests on the given endpoint.
 func (server *Pino) Delete(path string, handler Handler) {
 	server.Routes = append(server.Routes, Route{
 		Path: path,
@@ -446,6 +466,7 @@ func (server *Pino) Delete(path string, handler Handler) {
 	})
 }
 
+//Create's a handle that receives all kinds of requests on the given endpoint.
 func (server *Pino) Use(path string, handler Handler) {
 	server.Routes = append(server.Routes, Route{
 		Path: path,
@@ -454,6 +475,7 @@ func (server *Pino) Use(path string, handler Handler) {
 	})
 }
 
+//Handles CORS.
 func (server *Pino) UseCors(cors *Cors) {
 	server.Routes = append(server.Routes, Route{
 		Path: cors.Path,
@@ -486,6 +508,8 @@ func (server *Pino) SetNotFoundHandler(handler Handler) {
 	server.NotFoundHandler = handler
 }
 
+
+//Returns a response with given body and status,
 func Text(text string, status Status) Response {
 	return Response{
 		Body: []byte(text),
@@ -537,6 +561,7 @@ func NewResponse(res Response) Response {
 	return response
 }
 
+//Returns a request with content-type as json, body as given and status as given
 func Json(json string, status Status) Response {
 	return Response{
 		Body: []byte(json),
@@ -550,6 +575,7 @@ func Json(json string, status Status) Response {
 	}
 }
 
+//Returns a response rendering the file whose path is given.
 func (res *Response) Render(templateFile string, data interface{}) {
 	template, err := template.ParseFiles(templateFile)
 	if err != nil {
@@ -572,12 +598,14 @@ func (res *Response) Render(templateFile string, data interface{}) {
 	res.StatusMsg = "OK"
 }
 
+//Streams the given chuck of data into the response.
 func (req *Request) Stream(data []byte, len uint64) {
 	req.conn.Write([]byte(fmt.Sprintf("%x\r\n", len)))
 	req.conn.Write(data);
 	req.conn.Write([]byte("\r\n"));
 }
 
+//Terminates the stream.
 func (req *Request) TerminateStream() {
 	req.conn.Write([]byte("0\r\n"))
 }
